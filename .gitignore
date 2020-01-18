@@ -1,5 +1,5 @@
 # Things I hate
-.DS_Store
+*.DS_Store
 
 #large pickle files
 *.pickle
