@@ -21,6 +21,9 @@
 *.geojson
 *.tif
 
+#training/testing data:
+data/
+
 #archive files
 *.tgz
 
