@@ -1,6 +1,9 @@
 # Things I hate
 *.DS_Store
 
+#large Fast.ai models
+*.pth
+
 #large pickle files
 *.pickle
 
