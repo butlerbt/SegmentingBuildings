@@ -178,50 +178,112 @@ def get_specific_tile(idx, tiles_gdf):
     idx: specific index number of tile
     """
     tile_poly = tiles_gdf.iloc[idx]['geometry']
-    print(tile_poly.bounds)
+    # print(tile_poly.bounds)
     return tile_poly
 
+def clip_singletile_polys(idx, tiles_gdf, all_polys_series, tile_size):
+    """
+    Clips and visualizes the polygon labels for a single tile
+    input: 
 
-def save_tile_img(tif_path, xyz, dataset, tile_size, zone, region, save_path, display=False):
+    idx: the index number of supermercado tile to clip polygon to 
+    tiles_gdf : gdf continaing supermercado tiles
+    all_polys_series : series containing polygon geometries 
+    tile_size : size of supermercado tile 
+
+    outputs:
+    visualizes clipped polygons
+    returns gdf of polygons within the specified idx tile
+    """
+    tile_poly = get_specific_tile(idx = idx, tiles_gdf=tiles_gdf)
+    # tfm = from_bounds(*tile_poly.bounds, tile_size, tile_size) 
+    cropped_polys = [poly for poly in all_polys_series if poly.intersects(tile_poly)]
+    cropped_polys_gdf = gpd.GeoDataFrame(geometry=cropped_polys, crs={'init': 'epsg:4326'})
+    cropped_polys_gdf.plot()
+    return cropped_polys_gdf
+
+
+
+def save_tile_img(tif, xyz, dataset, tile_size, region, zone, save_path, display=False):
     """
     clips COG to specific supermercado burned tile and saves the tile to the save_path
     """
     
     prefix = f'{region}{zone}{dataset}_'
     x,y,z = xyz
-    tile, mask = rt_main.tile(tif_path, x,y,z, tilesize=tile_size)
+    tile, mask = rt_main.tile(tif, x,y,z, tilesize=tile_size)
     if display: 
         plt.imshow(np.moveaxis(tile,0,2))
         plt.show()
     
     skimage.io.imsave(f'{save_path}/{prefix}{z}_{x}_{y}.png',np.moveaxis(tile,0,2), check_contrast=False) 
 
+def tfm(tile_polygon, tile_size):
+    """
+    Returns the Affine transformation matrix. 
+
+    Affine transformation is a linear mapping method that preserves points, straight lines, and planes. 
+    Sets of parallel lines remain parallel after an affine transformation. The affine transformation technique 
+    is typically used to correct for geometric distortions or deformations that occur with non-ideal camera angles.
+    """
+
+    tfm = from_bounds(*tile_polygon.bounds, tile_size, tile_size)
+    return tfm
 
 
-def save_tile_mask(labels_poly, tile_poly, xyz, tile_size, dataset, zone, region, save_path, display=False):
+def burn_mask(cropped_polys_gdf, tfm, tile_size, channels = 3):
+    """
+    Use solaris to create a pixel mask¶
+    Creates our corresponding 3-channel RGB mask by passing the cropped polygons to solaris' df_to_px_mask function.
+
+    1st (Red) channel represent building footprints,
+    2nd (Green) channel represent building boundaries (visually looks yellow on the RGB mask display because the pixels overlap red and green+red=yellow),
+    3rd (Blue) channel represent close contact points between adjacent buildings
+
+    see: https://solaris.readthedocs.io/en/latest/tutorials/notebooks/api_masks_tutorial.html
+    """
+    
+    
+
+    if channels == 3:
+        fbc_mask = sol.vector.mask.df_to_px_mask(df=cropped_polys_gdf,
+                                                channels=['footprint', 'boundary', 'contact'],
+                                                affine_obj=tfm, shape=(tile_size,tile_size),
+                                                boundary_width=5, boundary_type='inner', contact_spacing=5, meters=True)
+    elif channels == 1:
+        fbc_mask = sol.vector.mask.footprint_mask(df=cropped_polys_gdf,
+                                                    affine_obj=tfm, shape=(tile_size,tile_size),
+                                                    )
+    return fbc_mask
+
+
+def save_tile_mask(label_poly_series, tile_poly, xyz, tile_size, dataset, region, zone, save_path, channels = 3, display=False):
     """
     clips the label polygons to the extent of a supermercado tile, uses solaris to burn a mask from the polygons, and 
     saves the burned mask to the directory
     """
+     
+    
 
     prefix = f'{region}{zone}{dataset}_'
     x,y,z = xyz
     tfm = from_bounds(*tile_poly.bounds, tile_size, tile_size) 
   
-    cropped_polys = [poly for poly in labels_poly if poly.intersects(tile_poly)]
+    cropped_polys = [poly for poly in label_poly_series if poly.intersects(tile_poly)]
     cropped_polys_gdf = gpd.GeoDataFrame(geometry=cropped_polys, crs={'init': 'epsg:4326'})
-  
-    fbc_mask = sol.vector.mask.df_to_px_mask(df=cropped_polys_gdf,
-                                         channels=['footprint', 'boundary', 'contact'],
-                                         affine_obj=tfm, shape=(tile_size,tile_size),
-                                         boundary_width=5, boundary_type='inner', contact_spacing=5, meters=True)
+    
+    fbc_mask = burn_mask(cropped_polys_gdf, tfm, tile_size, channels)
+        # fbc_mask = sol.vector.mask.df_to_px_mask(df=cropped_polys_gdf,
+        #                                     channels=['footprint', 'boundary', 'contact'],
+        #                                     affine_obj=tfm, shape=(tile_size,tile_size),
+        #                                     boundary_width=5, boundary_type='inner', contact_spacing=5, meters=True)
   
     if display: 
         plt.imshow(fbc_mask); plt.show()
   
     skimage.io.imsave(f'{save_path}/{prefix}{z}_{x}_{y}_mask.png',fbc_mask, check_contrast=False) 
 
-def batch_save_tile_img(tiles_gdf, tif_path, xyz, data_set, tile_size, zone, region, save_path, display=False):
+def batch_save_tile_img(tiles_gdf, tif, tile_size, region, zone, save_path, display=False):
     """
     batch clips the entire COG
 
@@ -232,7 +294,35 @@ def batch_save_tile_img(tiles_gdf, tif_path, xyz, data_set, tile_size, zone, reg
     """
     for idx, tile in tqdm(tiles_gdf.iterrows()):
         dataset = tile['dataset']
-        save_tile_img(tif_path, tile['xyz'], data_set, tile_size, zone, region, save_path, display=False)
+        save_tile_img(tif, tile['xyz'], dataset, tile_size, region, zone, save_path, display=False)
 
+def batch_save_tile_mask(tiles_gdf, label_poly_series, tile_size, region, zone, save_path, channels=3, display=False):
+    """
+    Batch clips, burns, and saves the entire set of polygon labels  
+
+    inputs:
+    tiles_gdf : gdf of supermercado tiles
+    label_poly_series : series or geodaframe['column'] consisting of polygon geometries 
+    tile_size : size of supermercado tile and output slippy tile
+    zone :  zone of study, for naming convention 
+    region : region of study, for naming convention
+    channels : bands to be burned into mask. 1 =  only building footprint; 3 = footprint, boundary, and contact
+    display : visualize each mask
+
+    outputs: 
+    saves burned masks in relative directory
+
+    cool things to remember about this loop:
+    1. tqdm creats a progress bar for the loop
+    2. .iterrows makes it easy to iterate through a Dataframe
+    """
+     
+    import warnings; warnings.simplefilter('ignore')
+
+    for idx, tile in tqdm(tiles_gdf.iterrows()):
+        dataset = tile['dataset']
+        tile_poly = get_specific_tile(idx, tiles_gdf)
+        save_tile_mask(label_poly_series, tile_poly, tile['xyz'], tile_size, dataset,
+                         region, zone, save_path, channels, display)
 
 
