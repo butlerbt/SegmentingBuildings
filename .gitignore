@@ -1,6 +1,9 @@
 # Things I hate
 *.DS_Store
 
+#presentation
+*.key
+
 #large Fast.ai models
 *.pth
 
