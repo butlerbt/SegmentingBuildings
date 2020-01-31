@@ -22,38 +22,84 @@ from shapely.ops import cascaded_union
 import skimage
 from tqdm import tqdm
 
-def import_data(zone, region, train_tier):
+# def import_data(zone, region, train_tier):
+#     """ 
+#     Imports the COG aerial imagery and labled geojson
+#     returns: label_df, geotif pathname
+#     """
+#     geojson = f'../../data/raw/{train_tier}/{region}/{zone}-labels/{zone}.geojson'
+#     geotif = f'../../data/raw/{train_tier}/{region}/{zone}/{zone}.tif'
+#     label_df = gpd.read_file(geojson)
+#     geotif = geotif
+#     return label_df, geotif
+
+def import_data_colab(label_file_df, tif_file_df, iteration):
     """ 
     Imports the COG aerial imagery and labled geojson
     returns: label_df, geotif pathname
     """
-    geojson = f'../../data/raw/{train_tier}/{region}/{zone}-labels/{zone}.geojson'
-    geotif = f'../../data/raw/{train_tier}/{region}/{zone}/{zone}.tif'
+    i = iteration
+
+    geotif = tif_file_df['tif_file_path'][i]
+    region = tif_file_df['region'][i]
+    zone = tif_file_df['zone'][i]
+    geojson = label_file_df.loc[label_file_df['zone']==zone]['label_file_path'].values[0]
+
     label_df = gpd.read_file(geojson)
-    geotif = geotif
-    return label_df, geotif
+    return label_df, geotif, region, zone
 
-
-def make_processed_directories(zone, region, zoom_level = 19, image_size = 256):
+def make_processed_directories_colab(zone, region, zoom_level = 19, image_size = 256):
     """
     make the directories to store processed/output data
     """
-    os.system(f'mkdir ../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}')
-    os.system(f'mkdir ../../data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}')
-    img_path = f'../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}'
-    mask_path = f'../../data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}'
+    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/images-{image_size}-{region}-{zone}-{zoom_level}')
+    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}')
+    img_path = f'drive/My\ Drive/seg_building_foots/data/processed/images-{image_size}-{region}-{zone}-{zoom_level}'
+    mask_path = f'drive/My\ Drive/seg_building_foots/data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}'
     return img_path, mask_path
+
+# def make_processed_directories(zone, region, zoom_level = 19, image_size = 256):
+#     """
+#     make the directories to store processed/output data
+#     """
+#     os.system(f'mkdir ../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}')
+#     os.system(f'mkdir ../../data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}')
+#     img_path = f'../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}'
+#     mask_path = f'../../data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}'
+#     return img_path, mask_path
     
+def file_path_df_colab(train_tier):
+    """
+    returns a df containing all filepaths for both labels and geotifs
+    """
+    # Prep list of filepaths
+    ims_filepaths = glob.glob(f'train_tier_{train_tier}/*/*/*.tif')
+    label_filepaths = glob.glob(f'train_tier_{train_tier}/*/*/*.geojson')
+    print("Found ", len(ims_filepaths), "images")
+    print("Found", len(label_filepaths),"labels")
+
+    tif_filepath_df = pd.DataFrame({
+        'tif_file_path':ims_filepaths,
+        'region':[t.split('/')[1] for t in ims_filepaths],
+        'zone':[x.split('/')[2].split('-')[0] for x in ims_filepaths]
+    
+    })
+
+    label_filepath_df = pd.DataFrame({
+        'label_file_path':label_filepaths,
+        'region':[t.split('/')[1] for t in label_filepaths],
+        'zone':[x.split('/')[2].split('-')[0] for x in label_filepaths]    
+    })
+    return tif_filepath_df, label_filepath_df
 
 
-
-def make_filepath_df(region, zone, zoom_level = 19, image_size = 256):
+def make_filepath_df(img_path):
     """
     use glob to put all of the file names, train and validation,
     into a dataframe for easy access. 
     """
     
-    ims = glob.glob(f'../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}/*.png')
+    ims = glob.glob(f'{img_path}/*.png')
     filepath_df = pd.DataFrame({
         'img_path':ims,
         'mask_path':[im.replace('images', 'masks').replace('.png', '_mask.png') for im in ims]
@@ -61,8 +107,39 @@ def make_filepath_df(region, zone, zoom_level = 19, image_size = 256):
 
     return filepath_df
 
+# def make_filepath_df(region, zone, zoom_level = 19, image_size = 256):
+#     """
+#     use glob to put all of the file names, train and validation,
+#     into a dataframe for easy access. 
+#     """
+    
+#     ims = glob.glob(f'../../data/processed/images-{image_size}-{region}-{zone}-{zoom_level}/*.png')
+#     filepath_df = pd.DataFrame({
+#         'img_path':ims,
+#         'mask_path':[im.replace('images', 'masks').replace('.png', '_mask.png') for im in ims]
+#     })
 
-def burn_tiles(region, zone, train_tier = 1, zoom_level = 19):
+#     return filepath_df
+
+
+# def burn_tiles(region, zone, train_tier = 1, zoom_level = 19):
+#     """
+#     Uses supermercado bash command to burn tiles across region/zone
+#     at set zoom level. 
+
+#     input: zoom_level = int, slippy map tile zooom level
+#     region: the region to be burned
+#     zone: the zone to be burned
+#     train_tier = training tier the zone and region belong to
+
+#     output: geojson with tile geometry with relative path name: 
+#             'tiles{region}{zone}.geojson'
+#     """
+    
+#     os.system(f'cat ../../data/raw/train_tier_{train_tier}/{region}/{zone}/{zone}.json | supermercado burn {zoom_level} | mercantile shapes | fio collect > ../../data/raw/train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
+#     os.system(f'echo done with {region}_{zone}_{zoom_level}')
+
+def burn_tiles_colab(region, zone, train_tier = 1, zoom_level = 19):
     """
     Uses supermercado bash command to burn tiles across region/zone
     at set zoom level. 
@@ -76,23 +153,34 @@ def burn_tiles(region, zone, train_tier = 1, zoom_level = 19):
             'tiles{region}{zone}.geojson'
     """
     
-    os.system(f'cat ../../data/raw/train_tier_{train_tier}/{region}/{zone}/{zone}.json | supermercado burn {zoom_level} | mercantile shapes | fio collect > ../../data/raw/train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
+    os.system(f'cat train_tier_{train_tier}/{region}/{zone}/{zone}.json | supermercado burn {zoom_level} | mercantile shapes | fio collect > train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
     os.system(f'echo done with {region}_{zone}_{zoom_level}')
 
+# def load_tile_geojson(region, zone, train_tier = 1, zoom_level = 19, visualize = False):
+#     """
+#     loads into a gpd dataframe and visualizes the supermercado created tile geojson
 
-def load_tile_geojson(region, zone, train_tier = 1, zoom_level = 19, visualize = False):
+#     returns gdf
+#     """
+
+#     tiles_gdf = gpd.read_file(f'../../data/raw/train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
+#     if visualize:
+#         tiles_gdf.plot(figsize=(10,10), color='grey', alpha=0.5, edgecolor='red')
+    
+#     return tiles_gdf
+
+def load_tile_geojson_colab(region, zone, train_tier = 1, zoom_level = 19, visualize = False):
     """
     loads into a gpd dataframe and visualizes the supermercado created tile geojson
 
     returns gdf
     """
 
-    tiles_gdf = gpd.read_file(f'../../data/raw/train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
+    tiles_gdf = gpd.read_file(f'train_tier_{train_tier}/{region}/{zone}/tiles_{region}_{zone}_{zoom_level}.geojson')
     if visualize:
         tiles_gdf.plot(figsize=(10,10), color='grey', alpha=0.5, edgecolor='red')
     
     return tiles_gdf
-
 
 def train_validation_split(tiles_df, valid_set_size = .2, visualize = False):
     """
