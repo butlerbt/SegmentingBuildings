@@ -9,7 +9,7 @@ Developing robust models that can automate feature identification and mapping fr
 
 ### Directories and files to be aware of:
 
-### • `zipcode` conda environment
+### • `solaris` conda environment
 
 This project relies on you using the [`environment.yml`](environment.yml) file to recreate the `solaris` conda environment. To do so, please run the following commands:
 
