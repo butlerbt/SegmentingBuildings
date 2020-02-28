@@ -9,6 +9,7 @@
 
 #large pickle files
 *.pickle
+*.pkl
 
 # Data files
 *.csv

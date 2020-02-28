@@ -52,10 +52,10 @@ def make_processed_directories_colab(zone, region, zoom_level = 19, image_size =
     """
     make the directories to store processed/output data
     """
-    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/images-{image_size}-{region}-{zone}-{zoom_level}')
-    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}')
-    img_path = f'drive/My\ Drive/seg_building_foots/data/processed/images-{image_size}-{region}-{zone}-{zoom_level}'
-    mask_path = f'drive/My\ Drive/seg_building_foots/data/processed/masks-{image_size}-{region}-{zone}-{zoom_level}'
+    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/images')
+    os.system(f'mkdir drive/My\ Drive/seg_building_foots/data/processed/masks')
+    img_path = f'drive/My\ Drive/seg_building_foots/data/processed/images'
+    mask_path = f'drive/My\ Drive/seg_building_foots/data/processed/masks'
     return img_path, mask_path
 
 # def make_processed_directories(zone, region, zoom_level = 19, image_size = 256):
