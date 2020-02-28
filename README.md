@@ -47,7 +47,7 @@ pip install -e .
 
         This notebook performans predictive segmentation on the test set of data. 
 
-### • The raw data was downloaded from Driven Data's competition which can be found [here] (https://www.drivendata.org/competitions/60/building-segmentation-disaster-resilience/page/151/) or can be downloaded by running the `get_data.sh` script in the `src/data/` directory 
+### • The raw data was downloaded from Driven Data's competition which can be downloaded by running the `get_data.sh` script in the `src/data/` directory 
  
 
 ### • A one-page .pdf memo summarizing my project written for non technical stakeholders can be found in the `/reports/memo.md`
