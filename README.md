@@ -9,7 +9,7 @@ Developing robust models that can automate feature identification and mapping fr
 
 ### Directories and files to be aware of:
 
-### • `zipcode` conda environment
+### • `solaris` conda environment
 
 This project relies on you using the [`environment.yml`](environment.yml) file to recreate the `solaris` conda environment. To do so, please run the following commands:
 
@@ -47,7 +47,7 @@ pip install -e .
 
         This notebook performans predictive segmentation on the test set of data. 
 
-### • The raw data was downloaded from Driven Data's competition which can be found [here] (https://www.drivendata.org/competitions/60/building-segmentation-disaster-resilience/page/151/) or can be downloaded by running the `get_data.sh` script in the `src/data/` directory 
+### • The raw data was downloaded from Driven Data's competition which can be downloaded by running the `get_data.sh` script in the `src/data/` directory 
  
 
 ### • A one-page .pdf memo summarizing my project written for non technical stakeholders can be found in the `/reports/memo.md`
